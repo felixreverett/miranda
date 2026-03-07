@@ -30,10 +30,12 @@
 || ==========================================================================================================
 
 
+|| The pegstate type represents the three possible states of each cell on a board.
+|| Invalid signifies an "out-of-bounds" cell to allow for non-rectangular boards.
 
 pegstate ::= Peg | Hole | Invalid
 
-|| Values to denote movement offsets (to simplify logic in play)
+|| These values denote unit movement offsets to simplify movement logic
 
 north     = ( 0, -1)
 east      = ( 1,  0)
@@ -78,19 +80,21 @@ moves =
 
 play :: [movement] -> [char]
 play moves
-	= printBoard (foldl f (initboard, 0) moves)
-		where
-          || I had to indent it like this because it wouldn't compile otherwise?
-          boardsizeX = # initboard
-          boardsizeY = # (initboard!0)
-		f (b, score) move = ((makemove.checkmove) (b, move), score + 1)
-		checkmove (b, (x , y, (xO, yO)))
-          = error "moved off board",          if ((x + xO) < 1) \/ ((x + xO) > boardsizeX) \/ ((y + yO)) < 1 \/ ((y + yO) > boardsizeY)
-          = error "moved off board (invalid)",if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) = Invalid)
-          = error "no peg at given position", if ((b!(y - 1))!(x - 1) ~= Peg)
-          = error "no peg to jump over",      if ((b!(y +     yO - 1))!(x +     xO - 1) ~= Peg)
-          = error "no hole to jump into",     if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) ~= Hole)
-          = (b, (x, y, (xO, yO))),            otherwise
+  = printBoard (foldl f (initboard, 0) moves)
+    where
+    boardsizeX = # initboard
+    boardsizeY = # (initboard!0)
+    f (b, score) move = ((makemove.checkmove) (b, move), score + 1)
+    checkmove (b, (x , y, (xO, yO)))
+      = error "moved off board",          if ((x + xO) < 1)
+                                          \/ ((x + xO) > boardsizeX)
+                                          \/ ((y + yO)) < 1
+                                          \/ ((y + yO) > boardsizeY)
+      = error "moved off board (invalid)",if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) = Invalid)
+      = error "no peg at given position", if ((b!(y - 1))!(x - 1) ~= Peg)
+      = error "no peg to jump over",      if ((b!(y +     yO - 1))!(x +     xO - 1) ~= Peg)
+      = error "no hole to jump into",     if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) ~= Hole)
+      = (b, (x, y, (xO, yO))),            otherwise
     makemove (b, (x, y, (xO, yO))) = ((make Peg (x + 2 * xO, y + 2 * yO)).(make Hole (x + xO, y + yO)).(make Hole (x, y))) b
     make p (x, y) b = (take (y - 1) b) ++ [(makerow p x (b!(y - 1)))] ++ (drop y b)
     makerow p x row = (take (x - 1) row) ++ [p] ++ (drop x row)
@@ -100,11 +104,11 @@ play moves
 || ==========================================================================================================
 
 printBoard (b, score) 
-      = (lay (map (concat.(map g)) b)) ++ "\nScore: " ++ show (score + 0)
+      = (lay (map (map g) b)) ++ "\nScore: " ++ show (score + 0)
         where
-        g Peg = "O"
-        g Invalid = " "
-        g any = "_"
+        g Peg = 'O'
+        g Invalid = ' '
+        g any = '_'
 
 || ==========================================================================================================
 || fn loadBoard
@@ -148,10 +152,10 @@ split splitter line
 || ==========================================================================================================
 
 main :: [char]
-|| main = play moves
+main = play moves
 
 || main = printBoard ((loadBoard "pegboard.txt"),0)
-main = printBoard ((loadBoard "diamondboard.txt"),0)
+|| main = printBoard ((loadBoard "diamondboard.txt"),0)
 
 
 || ==========================================================================================================
