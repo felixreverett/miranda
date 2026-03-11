@@ -109,6 +109,43 @@ loadBoard fileName
     strToPegState any = error ("Unrecognised pegstate found in " ++ show (fileName) ++ ": " ++ show (any))
 
 || ======================================================================================
+|| fn calculateGameOver
+|| Returns True if no more valid moves are possible
+|| Iterates over every row/col
+||
+|| ======================================================================================
+
+
+
+calculateGameOver :: pegboard -> bool
+calculateGameOver board
+  = foldCol (0, 0, False) board
+    where
+    foldCol (r, c, any ) []             = any || converging case
+    foldCol (r, c, any ) (front : rest) = foldCol (foldRow (r, c, any) front) rest
+
+    foldRow (r, c, any ) []             = (r+1, 0, any) || converging case. Set col back to 0
+    foldRow (r, c, any ) (front : rest) = foldRow (r, c+1, any & ~canMoveHere (r, c, board)) rest
+
+    || canMoveHere :: (num, num, pegboard) -> bool
+    canMoveHere (row, col, board)
+      = False, if board!row!col ~= Peg
+      = or [checkDir (cO, rO) | (cO, rO) <- offsets], otherwise
+        where
+        offsets = [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)]
+        checkDir (cO, rO)
+          = isType board row col Peg  1 (cO, rO) &
+            isType board row col Hole 2 (cO, rO)
+
+    isType board row col matchType scale (cO, rO)
+      = newRow >= 0 & newRow < #board &
+        newCol >= 0 & newCol < #(board!0) &
+        board!newRow!newCol = matchType
+        where
+        newRow = (row + scale * rO)
+        newCol = (col + scale * cO)
+
+|| ======================================================================================
 || fn split
 || ======================================================================================
 
@@ -187,7 +224,7 @@ runGame
 
     || getBoardName :: [char] -> [sys_message]
     getBoardName input
-      = Stdout msg_board : doGameLoop (board, 0) rest False
+      = Stdout msg_board : doGameLoop (board, 0) rest
         where
         boardName = filter (~= '\r') (takewhile (~= '\n') input)
         rest = drop 1 (dropwhile (~= '\n') input)
@@ -199,16 +236,17 @@ runGame
                   = "No board selected. Using Default.\n", if #boardName = 0
 
     || doGameLoop :: (pegboard, num) -> [char] -> bool -> [sys_message]
-    doGameLoop (currentBoard, score) input isGameOver
-      = [Stdout (printBoard (currentBoard, score) ++ "\nGame Over!")], if isGameOver
+    doGameLoop (currentBoard, score) input
+      = [Stdout ("\nGame Over!\n")], if isGameOver
       = Stdout prompt : processInput input, otherwise
         where
+        isGameOver = calculateGameOver currentBoard
         prompt = "\n" ++ (printBoard (currentBoard, score))
                       ++ "\nEnter your move (or 'q' to quit): "
 
         processInput stream
           = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
-          = doGameLoop nextState rest False, otherwise
+          = doGameLoop nextState rest, otherwise
             where
             moveStr = filter (~= '\r') (takewhile (~= '\n') stream)
             rest = drop 1 (dropwhile (~= '\n') stream)
