@@ -110,43 +110,60 @@ loadBoard fileName
 
 || ======================================================================================
 || fn calculateGameOver
-|| Returns True if no more valid moves are possible
-|| Iterates over every row/col
+|| - Returns True if no more valid moves are possible
+|| - Iterates over every row/col to see if a valid move can be made at that location.
 ||
+|| Possible bug: A winning board will be considered Game Over, which is correct but
+|| this should probably log something else to the user.
 || ======================================================================================
-
-
 
 calculateGameOver :: pegboard -> bool
 calculateGameOver board
-  = foldCol (0, 0, False) board
+
+  || this logic uses List Comprehensions to generate all coordinates of the board
+  || passing each set into 'canMoveHere' and xor-ing the result
+  || this means the function returns early if a valid move is found
+
+  = ~ (or [canMoveHere (r, c, board) | r <- [0 .. #board - 1]; c <- [0 .. #(board!0) - 1]])
     where
-    foldCol (r, c, any ) []             = any || converging case
-    foldCol (r, c, any ) (front : rest) = foldCol (foldRow (r, c, any) front) rest
-
-    foldRow (r, c, any ) []             = (r+1, 0, any) || converging case. Set col back to 0
-    foldRow (r, c, any ) (front : rest) = foldRow (r, c+1, any & ~canMoveHere (r, c, board)) rest
-
+    
     || canMoveHere :: (num, num, pegboard) -> bool
-    canMoveHere (row, col, board)
-      = False, if board!row!col ~= Peg
+    ||   this function checks each cell to see if it's a Peg
+    ||   then checks adjacent cells in 8 directions using 'checkDir' to see
+    ||   if they contain a Peg to jump over, and a Hole to land in.
+    ||   This function returns early if a valid move is found.
+    
+    canMoveHere (row, col, b)
+      = False, if b!row!col ~= Peg
       = or [checkDir (cO, rO) | (cO, rO) <- offsets], otherwise
         where
-        offsets = [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)]
-        checkDir (cO, rO)
-          = isType board row col Peg  1 (cO, rO) &
-            isType board row col Hole 2 (cO, rO)
 
-    isType board row col matchType scale (cO, rO)
-      = newRow >= 0 & newRow < #board &
-        newCol >= 0 & newCol < #(board!0) &
-        board!newRow!newCol = matchType
+        || offsets denotes the different valid movement directions in the game.
+        || I could have found a way to reuse the definitions at the top of the
+        || program, but I didn't want to so I didn't :)
+
+        offsets = [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)]
+
+        checkDir (cO, rO) = isType b row col Peg  1 (cO, rO) &
+                            isType b row col Hole 2 (cO, rO)
+
+    || isType :: pegboard -> num -> num -> pegstate -> num -> (num, num) -> bool
+
+    || isType is used to make sure a particular cell is the expected valid type.
+    || I made sure to do bounds checking first.
+
+    isType b row col matchType scale (cO, rO)
+      = newRow >= 0 & newRow < #b &
+        newCol >= 0 & newCol < #(b!0) &
+        b!newRow!newCol = matchType
         where
-        newRow = (row + scale * rO)
-        newCol = (col + scale * cO)
+        newRow = row + scale * rO
+        newCol = col + scale * cO
 
 || ======================================================================================
 || fn split
+|| simple helper function. Can't for the life of me remember what it does since the
+|| name is so ambiguous. Just kidding, it splits stuff.
 || ======================================================================================
 
 split :: char -> [char] -> [[char]]
@@ -237,7 +254,7 @@ runGame
 
     || doGameLoop :: (pegboard, num) -> [char] -> bool -> [sys_message]
     doGameLoop (currentBoard, score) input
-      = [Stdout ("\nGame Over!\n")], if isGameOver
+      = [Stdout (printBoard (currentBoard, score) ++ "\nNo more valid moves!\nGame Over!\n")], if isGameOver
       = Stdout prompt : processInput input, otherwise
         where
         isGameOver = calculateGameOver currentBoard
@@ -256,6 +273,7 @@ runGame
 
 || ======================================================================================
 || fn main
+|| I just like styling my code like this :)
 || ======================================================================================
 
 main = runGame
