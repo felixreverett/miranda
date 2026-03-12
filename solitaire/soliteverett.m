@@ -288,16 +288,18 @@ doGameLoop (currentBoard, score) input
 
     processInput stream
       = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
-      = doGameLoop nextState rest, otherwise
+      = handleMoveResult (playMove (currentBoard, score) parsedMove), otherwise
         where
         moveStr = filter (~= '\r') (takewhile (~= '\n') stream)
         rest = drop 1 (dropwhile (~= '\n') stream)
 
         parsedMove = convertInputToMovement moveStr
-        nextState = getNextState (playMove (currentBoard, score) parsedMove)
+
+        handleMoveResult (Some nextState)
+          = doGameLoop nextState rest
         
-        getNextState (Some state) = state
-        getNextState (None err)   = (currentBoard, score-1)
+        handleMoveResult (None errMsg)
+          = Stdout ("\nINVALID MOVE!: " ++ errMsg ++ "\n") : doGameLoop (currentBoard, score) rest
 
 || ======================================================================================
 || fn main
