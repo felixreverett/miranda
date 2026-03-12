@@ -290,11 +290,11 @@ doGameLoop (currentBoard, score) input
 
     || mutual recursion, eek!
 
-    processInput stream
+    processInput input
       = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
       = handleMoveResult (playMove (currentBoard, score) parsedMove), otherwise
         where
-        moveStr = filter (~= '\r') (takewhile (~= '\n') stream)
+        moveStr = filter (~= '\r') (takewhile (~= '\n') input)
         rest = drop 1 (dropwhile (~= '\n') stream)
 
         parsedMove = convertInputToMovement moveStr
