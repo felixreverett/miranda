@@ -83,9 +83,9 @@ printBoard (b, score)
 
 || ======================================================================================
 || fn loadBoard
-|| loads a board from a file given the filename.
+|| - Loads a board from a file given the filename.
 ||
-|| NB: entering an invalid filename will crash the program.
+|| - NB: entering an invalid filename will crash the program.
 || ======================================================================================
 
 loadBoard :: [char] -> [[pegstate]]
@@ -106,15 +106,17 @@ loadBoard fileName
     strToPegState "I" = Invalid
     strToPegState "P" = Peg
     strToPegState "H" = Hole
-    strToPegState any = error ("Unrecognised pegstate found in " ++ show (fileName) ++ ": " ++ show (any))
+    strToPegState any
+      = error ("Unrecognised pegstate found in " ++
+        show (fileName) ++ ": " ++ show (any))
 
 || ======================================================================================
 || fn calculateGameOver
 || - Returns True if no more valid moves are possible
 || - Iterates over every row/col to see if a valid move can be made at that location.
 ||
-|| Possible bug: A winning board will be considered Game Over, which is correct but
-|| this should probably log something else to the user.
+|| - Possible bug: A winning board will be considered Game Over, which is correct but
+||   this should probably log something else to the user.
 || ======================================================================================
 
 calculateGameOver :: pegboard -> bool
@@ -162,8 +164,8 @@ calculateGameOver board
 
 || ======================================================================================
 || fn split
-|| simple helper function. Can't for the life of me remember what it does since the
-|| name is so ambiguous. Just kidding, it splits stuff.
+|| - A simple helper function. Its purpose is lost to time since the name is so
+||   ambiguous. Perhaps aliens built it.
 || ======================================================================================
 
 split :: char -> [char] -> [[char]]
@@ -177,37 +179,47 @@ split splitter line
 
 || ======================================================================================
 || fn playMove
-|| Takes a (board, score) tuple and movement, and returns an updated board and score.
-|| Replaces the earlier 'play' function, which simulated a whole moveset.
+|| - Takes a (board, score) tuple and movement, and updates the tuple accordingly.
+|| - NB: Replaces the earlier 'play' function, which simulated a whole moveset.
 || ======================================================================================
 
-playMove :: (pegboard, num) -> movement -> (pegboard, num)
+moveResult ::= Some (pegboard, num) | None [char]
+
+playMove :: (pegboard, num) -> movement -> moveResult
 playMove (board, score) move
   = xPlayMove board score move
     where
     boardsizeX = # board
     boardsizeY = # (board!0)
-    xPlayMove b s m = ((makemove.checkmove) (b, m), s + 1)
-    checkmove (b, (x , y, (xO, yO)))
-      = error "moved off board",          if ((x + xO) < 1)
-                                          \/ ((x + xO) > boardsizeX)
-                                          \/ ((y + yO)) < 1
-                                          \/ ((y + yO) > boardsizeY)
-      = error "moved off board (invalid)",if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) = Invalid)
-      = error "no peg at given position", if ((b!(y - 1))!(x - 1) ~= Peg)
-      = error "no peg to jump over",      if ((b!(y +     yO - 1))!(x +     xO - 1) ~= Peg)
-      = error "no hole to jump into",     if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) ~= Hole)
-      = (b, (x, y, (xO, yO))),            otherwise
-    makemove (b, (x, y, (xO, yO))) = ((make Peg (x + 2 * xO, y + 2 * yO)).(make Hole (x + xO, y + yO)).(make Hole (x, y))) b
-    make p (x, y) b = (take (y - 1) b) ++ [(makerow p x (b!(y - 1)))] ++ (drop y b)
-    makerow p x row = (take (x - 1) row) ++ [p] ++ (drop x row)
+    xPlayMove b s m = checkmove (b, m, s)
+
+    checkmove (b, (x , y, (xO, yO)), s)
+      = None "moved off board",          if ((x + xO) < 1)
+                                         \/ ((x + xO) > boardsizeX)
+                                         \/ ((y + yO)) < 1
+                                         \/ ((y + yO) > boardsizeY)
+      = None "moved off board (invalid)",if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) = Invalid)
+      = None "no peg at given position", if ((b!(y - 1))!(x - 1) ~= Peg)
+      = None "no peg to jump over",      if ((b!(y +     yO - 1))!(x +     xO - 1) ~= Peg)
+      = None "no hole to jump into",     if ((b!(y + 2 * yO - 1))!(x + 2 * xO - 1) ~= Hole)
+      = Some (makemove (b, (x, y, (xO, yO))), s+1),      otherwise
+
+    makemove (b, (x, y, (xO, yO)))
+      = ((make Peg (x + 2 * xO, y + 2 * yO))
+        .(make Hole (x + xO, y + yO))
+        .(make Hole (x, y))) b
+    make p (x, y) b
+      = (take (y - 1) b) ++
+        [(makerow p x (b!(y - 1)))] ++
+        (drop y b)
+    makerow p x row
+      = (take (x - 1) row) ++ [p] ++ (drop x row)
 
 || ======================================================================================
 || fn convertInputToMovement
-|| Converts a user input to a movement by splitting the input, casting the first
-|| two values into numbers and the third into a 'direction'
+|| - Converts a user input to a movement triple.
 ||
-|| NB: There is no input validation here.
+|| - NB: There is no input validation here.
 || ======================================================================================
 
 convertInputToMovement :: [char] -> movement
@@ -230,50 +242,67 @@ convertInputToMovement input
      = error "Invalid move!", otherwise
 
 || ======================================================================================
-|| fn runGame
-|| The primary function to run the interactive game. Contains several helper functions
-|| which share the input stream: getBoardName; doGameLoop
+|| fn runGame, fn getBoardName, fn doGameLoop
+|| - The primary functions to run the interactive game, which run sequentially
+||   to pass forward the input stream and enable user interactivity.
 || ======================================================================================
 
 runGame
   = Stdout msg_init : getBoardName $-
-    where msg_init = "Welcome to Soliteverett!\nPlease enter a file name to load a board: "
+    where msg_init
+      = "Welcome to Soliteverett!\n" ++
+        "Please enter a file name to load a board: "
 
-    || getBoardName :: [char] -> [sys_message]
-    getBoardName input
-      = Stdout msg_board : doGameLoop (board, 0) rest
+|| takes user input to load a specified board file.
+|| parsed by fn loadBoard
+
+getBoardName :: [char] -> [sys_message]
+getBoardName input
+  = Stdout msg_board : doGameLoop (board, 0) rest
+    where
+    boardName = filter (~= '\r') (takewhile (~= '\n') input)
+    rest = drop 1 (dropwhile (~= '\n') input)
+
+    board = defaultBoard, if #boardName = 0
+          = loadBoard boardName, otherwise
+
+    msg_board = "Selected board: " ++ boardName ++ ".\n", if #boardName > 0
+              = "No board selected. Using Default.\n", if #boardName = 0
+
+|| The main game loop. Curries a board-score tuple and user input
+|| to represent a 'turn', and loops in this state until the the game is
+|| over or the user decides to quit, at which point it returns a
+|| sys_message to print a final update to the console.
+
+doGameLoop :: (pegboard, num) -> [char] -> [sys_message]
+doGameLoop (currentBoard, score) input
+  = [Stdout (printBoard (currentBoard, score) ++
+    "\nNo more valid moves!\nGame Over!\n")], if isGameOver
+  = Stdout prompt : processInput input, otherwise
+    where
+    isGameOver = calculateGameOver currentBoard
+    prompt = "\n" ++ (printBoard (currentBoard, score))
+                  ++ "\nEnter your move (or 'q' to quit): "
+
+    || mutual recursion, eek!
+
+    processInput stream
+      = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
+      = doGameLoop nextState rest, otherwise
         where
-        boardName = filter (~= '\r') (takewhile (~= '\n') input)
-        rest = drop 1 (dropwhile (~= '\n') input)
+        moveStr = filter (~= '\r') (takewhile (~= '\n') stream)
+        rest = drop 1 (dropwhile (~= '\n') stream)
 
-        board = defaultBoard, if #boardName = 0
-              = loadBoard boardName, otherwise
-
-        msg_board = "Selected board: " ++ boardName ++ ".\n", if #boardName > 0
-                  = "No board selected. Using Default.\n", if #boardName = 0
-
-    || doGameLoop :: (pegboard, num) -> [char] -> bool -> [sys_message]
-    doGameLoop (currentBoard, score) input
-      = [Stdout (printBoard (currentBoard, score) ++ "\nNo more valid moves!\nGame Over!\n")], if isGameOver
-      = Stdout prompt : processInput input, otherwise
-        where
-        isGameOver = calculateGameOver currentBoard
-        prompt = "\n" ++ (printBoard (currentBoard, score))
-                      ++ "\nEnter your move (or 'q' to quit): "
-
-        processInput stream
-          = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
-          = doGameLoop nextState rest, otherwise
-            where
-            moveStr = filter (~= '\r') (takewhile (~= '\n') stream)
-            rest = drop 1 (dropwhile (~= '\n') stream)
-
-            parsedMove = convertInputToMovement moveStr
-            nextState = playMove (currentBoard, score) parsedMove
+        parsedMove = convertInputToMovement moveStr
+        nextState = getNextState (playMove (currentBoard, score) parsedMove)
+        
+        getNextState (Some state) = state
+        getNextState (None err)   = (currentBoard, score-1)
 
 || ======================================================================================
 || fn main
-|| I just like styling my code like this :)
+|| - Program entry point
+|| - Execute with $ mira -exec soliteverett.m
 || ======================================================================================
 
 main = runGame
