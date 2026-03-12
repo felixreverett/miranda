@@ -15,19 +15,23 @@
 || This is the Felix implementation of Solitaire, also known as 'Soliteverett'
 ||
 || Major Changes:
+|| - The game is now interactive!
 || - Optimised logic in checkmove and makemove to use directional tuples instead;
 || - Added dynamic boardsizing. This requires that the array not be jagged;
 || - You can play diagonally;
 || - Added a score to the accumulator. Yes you could just type `# moves`,
 ||   but the score is incremented in the accumulator;
 || - Added file loading and parsing of text into a pegboard;
-|| - The game is now interactive!
+|| - Some degree of error handling.
 ||
 || Fixes:
 || - The initial implementation did not prevent off-board moves East or West;
 || - Added explicit error checking to ensure moves cannot land on an invalid tile,
 ||   which was previously handled incidentally by ensuring the destination was a Hole.
 ||
+|| Todo:
+|| - Condense makemove/make/makerow into generalised function(s)
+|| - Add error handling for invalid move inputs
 || ======================================================================================
 
 || The pegstate type represents the three possible states of each cell on a board.
