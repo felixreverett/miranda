@@ -14,7 +14,7 @@ str == [char]
 
 split :: str -> str -> [str]
 
-split string delim
+split delim string
   = reverse (xsplit string [] [])
     where
     xsplit [] acc substring = substring : acc
