@@ -54,11 +54,18 @@ defaultMinefield
 || =============================================================
 
 printMinefield :: minefield -> [char]
+printMinefield m
+  = lay (map (map printCell) m)
+    where
+    printCell (Hidden any) = '?'
+    printCell (Shown Mine) = '*'
+    printCell (Shown (Empty 0)) = '_'
+    printCell (Shown (Empty n)) = (show (n))!0
 
 || =============================================================
 || fn loadMinefield
 ||
-|| > A series of functions that takes a filename and converts it
+|| > A series of functions that take a filename and convert it
 ||   into a 'primed' version of Mines and Empty,
 ||   then a 'flagged' version to mark the number of mines
 ||   adjacent to each Empty cell (if > 0),
@@ -144,7 +151,7 @@ hideMinefield constructed
 || fn run
 || =============================================================
 
-run = loadMinefield "minefield1.txt"
+run = (printMinefield.loadMinefield) "minefield1.txt"
 
 || =============================================================
 || fn main
