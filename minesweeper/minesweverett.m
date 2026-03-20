@@ -1,16 +1,16 @@
-|| =================================================================== ||
-||   __  __ _                                                 _   _    ||
-||  |  \/  (_)                                               | | | |   ||
-||  | \  / |_ _ __   ___  _____      _______   _____ _ __ ___| |_| |_  ||
-||  | |\/| | | '_ \ / _ \/ __\ \ /\ / / _ \ \ / / _ \ '__/ _ \ __| __| ||
-||  | |  | | | | | |  __/\__ \\ V  V /  __/\ V /  __/ | |  __/ |_| |_  ||
-||  |_|  |_|_|_| |_|\___||___/ \_/\_/ \___| \_/ \___|_|  \___|\__|\__| ||
-||                                                                     ||
-|| =================================================================== ||
-|| Minesweverett, an implementation of Minesweeper
-||
-||
-|| =============================================================
+|| ========================================================== ||
+||   __  __ _                              _ _                ||
+||  |  \/  (_)                            | (_)               ||
+||  | \  / |_ _ __   ___  _____      _____| |___  __          ||
+||  | |\/| | | '_ \ / _ \/ __\ \ /\ / / _ \ | \ \/ /          ||
+||  | |  | | | | | |  __/\__ \\ V  V /  __/ | |>  <           ||
+||  |_|  |_|_|_| |_|\___||___/ \_/\_/ \___|_|_/_/\_\          ||                                                                                    
+||                                                            ||
+|| ========================================================== ||
+|| Mineswelix, a functional implementation of Minesweeper     ||
+||                                                            ||
+||                                                            ||
+|| ========================================================== ||
 
 %include "../utils/utils_strings"
 %include "../utils/io"
@@ -49,8 +49,89 @@ defaultMinefield
      "E M E E E E E E M E\n" ++
      "E E E E E E E E E E\n")
 
+coords == (num, num)
+
+cardinalOffsets
+  = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+
+offsets
+  = cardinalOffsets ++ [(1, -1), (1, 1), (-1, 1), (-1, -1)]
+
+|| =============================================================
+|| fn playMove
+|| > Takes a minefield and coords, and updates the board for
+||   that move.
+|| > Move conditions:
+||   1) Mine -> game over
+||   2) Empty (non zero) ->
+||   3) Empty (zero) -> flood fill
+||
+|| > Assumes that the coords are valid
+|| =============================================================
+
+playMove :: minefield -> coords -> minefield
+
+playMove field (row, col)
+  = playCell value
+    where
+    value = (field!row)!col
+    playCell (Shown any) = error "Cannot play move on a shown cell"
+    playCell (Hidden Mine) = error "Game over, you pressed a mine!"
+    playCell (Hidden (Empty 0)) = sweep field (row, col)
+    playCell (Hidden any) = updateMinefield field (row, col) (Shown any)
+
+|| =============================================================
+|| fn sweep
+|| > Sweeps across the board to reveal contiguous blocks of
+||   Empty cells.
+||
+|| > Sweep on an "Empty 0" cell will recursively call adjacent
+||   sweeps.
+|| > Sweep on an "Empty n" cell will updateMinefield to reveal
+||   that cell.
+|| > Sweep on a "Mine" will return the current field, but
+||   theoretically this shouldn't be possible because Mines are
+||   always surrounded by "Empty n" cells.
+||
+|| =============================================================
+
+sweep :: minefield -> coords -> minefield
+sweep field (row, col)
+  = field, if ~isInBounds (row, col) field
+  = xSweep field (row, col) value, otherwise
+    where
+    value = (field!row)!col
+    xSweep f (r, c) (Shown any) = f
+    xSweep f (r, c) (Hidden Mine) = error "how did we get here" || f
+    xSweep f (r, c) (Hidden (Empty 0))
+      = foldl sweep updatedField coordSet
+        where
+        updatedField = updateMinefield f (r, c) (Shown (Empty 0))
+        coordSet = [(r + a, c + b) | (a, b) <- cardinalOffsets]
+    xSweep f (r, c) (Hidden (Empty any))
+      = updateMinefield f (r, c) (Shown (Empty any))
+
+|| =============================================================
+|| fn updateMinefield
+|| > Updates a single cell on the minefield at the given coords.
+|| =============================================================
+
+updateMinefield :: minefield -> coords -> cell -> minefield
+
+updateMinefield field (row, col) value
+  = (take row field) ++
+    [(makerow col (field!row) value)] ++
+    (drop (row + 1) field)
+    where
+    makerow col r value
+      = (take col r) ++
+        [value] ++
+        (drop (col + 1) r)
+
 || =============================================================
 || fn printMinefield
+|| > takes a minefield and converts it into a string suitable
+||   for printing to the console.
 || =============================================================
 
 printMinefield :: minefield -> [char]
@@ -108,8 +189,6 @@ flagMinefield primedfield
           otherwise
         where
         coordSet = [(row + a, col + b) | (a, b) <- offsets]
-        offsets = [(0, -1), (1, 0), (0, 1), (-1, 0),
-                  (1, -1), (1, 1), (-1, 1), (-1, -1)]
     
     flagAdjacents field (r, c)
       = makeFlag (r, c) field, if ((isInBounds (r, c) field)
@@ -128,13 +207,6 @@ flagMinefield primedfield
         ++ [Empty (amount + 1)]
         ++ (drop (c + 1) row)
 
-    isInBounds (r, c) field
-      = True, if (r >= 0
-                  & r < #field
-                  & c >= 0
-                  & c < #(field!r))
-      = False, otherwise
-
     isMine (r, c) field
       = True, if (field!r)!c = Mine
       = False, otherwise
@@ -148,10 +220,21 @@ hideMinefield constructed
     obfuscate any = Hidden any
 
 || =============================================================
+|| fn isInBounds
+|| > Generic function which determines whether a set of coords
+||   are within the bounds of a 2D list
+|| =============================================================
+
+isInBounds :: coords -> [[*]] -> bool
+isInBounds (r, c) array
+  = True,  if (r >= 0 & r < #array & c >= 0 & c < #(array!r))
+  = False, otherwise
+
+|| =============================================================
 || fn run
 || =============================================================
 
-run = (printMinefield.loadMinefield) "minefield1.txt"
+run = printMinefield (playMove (loadMinefield "minefield1.txt") (5, 5))
 
 || =============================================================
 || fn main
