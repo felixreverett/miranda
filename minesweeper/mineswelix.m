@@ -49,15 +49,15 @@ minefield == [[maskedCelltype]]
 defaultMinefield
   = (maskMinefield.flagMinefield.primeMinefield)
     ("E E E E E E E E E E\n" ++
-     "E M E E E E E E M E\n" ++
      "E E E E E E E E E E\n" ++
      "E E E E E E E E E E\n" ++
      "E E E E E E E E E E\n" ++
      "E E E E E E E E E E\n" ++
      "E E E E E E E E E E\n" ++
      "E E E E E E E E E E\n" ++
-     "E M E E E E E E M E\n" ++
-     "E E E E E E E E E E\n")
+     "E E E E E E E E E E\n" ++
+     "E E E E E E E E E E\n" ++
+     "E E E E E E E E E M\n")
 
 coords == (num, num)
 
@@ -293,17 +293,17 @@ getMinefieldName input
       = "No field selected. "
         ++ "Using default.\n", if #fieldName = 0
 
-isGameOver field = False
-
 doGameLoop :: minefield -> [char] -> [sys_message]
 doGameLoop field input
-  = [Stdout (printMinefield field)], if isGameOver field
+  = [Stdout (printMinefield field ++ winMessage)], if isGameOver field
   = Stdout prompt : processInput input, otherwise
     where
     prompt
       = "\n"
         ++ printMinefield field
         ++ "\nEnter your move, or press 'q' to quit: "
+
+    winMessage = "\nCongratulations, you win!\n"
 
     processInput stream
       = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
@@ -314,6 +314,26 @@ doGameLoop field input
         
         parsedMove = convertInput moveStr
         nextField = playMove field parsedMove
+
+|| =============================================================
+|| fn isGameOver
+||
+|| > Checks if the only hidden blocks are mines.
+|| =============================================================
+
+isGameOver :: minefield -> bool
+isGameOver field
+  = checkCellByIndex indexers
+    where
+    indexers = buildIndexers field
+    checkCellByIndex [] = True
+    checkCellByIndex ((r, c) : rest)
+      = False, if isHiddenEmpty ((field!r)!c)
+      = checkCellByIndex rest, otherwise
+
+    isHiddenEmpty (Hidden (Mine)) = False
+    isHiddenEmpty (Hidden (Empty n)) = True
+    isHiddenEmpty (Shown any) = False
 
 || =============================================================
 || fn main
