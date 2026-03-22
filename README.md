@@ -9,8 +9,20 @@ And yet oxymoronically none of this detracts from what is a thrilling and effici
 
 ## 1. Projects
 
-### 1.1. Solitaire
+### 1.1. solitaire
 `solitaire/`
 
 The challenge here was to implement the game 'peg solitaire' in Miranda. Once I completed this, I decided to extend the game to a version I donned the inspiring name 'soliteverett'.
 
+### 1.2. utils
+`utils/`
+
+A custom non-standard library to implement common, reusable functions for the Miranda programming language. Includes the following collections:
+- io
+- lists
+- strings
+
+### 1.3. minesweeper
+`minesweeper/`
+
+A functional implementation of minesweeper. Building on the addition of program interactivity that I solved in solitaire, this implementation also requires stateless implementations of flood fills and board preparation. I make further use of algebraic types, and I have begun implementing my utils libraries into the codebase.
