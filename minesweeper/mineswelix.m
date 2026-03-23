@@ -7,38 +7,41 @@
 ||      |_|  |_|_|_| |_|\___||___/ \_/\_/ \___|_|_/_/\_\      ||                                                                                    
 ||                                                            ||
 || ========================================================== ||
-|| Mineswelix, a functional implementation of Minesweeper     ||
+|| Mineswelix, a functional implementation of Minesweeper in  ||
+|| the Miranda programming language.                          ||
 ||                                                            ||
-||                                                            ||
+|| NB: This implementation uses several custom libraries so   ||
+|| will not compile as a standalone script. Also note that I  ||
+|| have opted to restrict the line width to 64 char :)        ||
 || ========================================================== ||
 
 %include "../utils/utils_strings"
 %include "../utils/utils_lists"
 %include "../utils/io"
 
-|| =============================================================
-|| Data
-||
-|| type cellType
-|| > The individual values that a cell may be.
-||   - Mine    -> a mine
-||   - Empty n -> adjacent to n mines
-||
-|| type maskedCelltype
-|| > Used to 'mask' the celltype from the user.
-||
-|| alias minefield
-|| > a 2D list of maskedCelltype
-||
-|| alias coords
-|| > A tuple of num used to index into the minefield.
-||
-|| alias cardinalOffsets
-|| > NESW offset coords
-||
-|| alias offsets
-|| > NESW + diagonal offset coords
-|| =============================================================
+|| ========================================================== ||
+|| Data                                                       ||
+||                                                            ||
+|| type cellType                                              ||
+|| > The individual values that a cell may be.                ||
+||   - Mine    -> a mine                                      ||
+||   - Empty n -> adjacent to n mines                         ||
+||                                                            ||
+|| type maskedCelltype                                        ||
+|| > Used to 'mask' the celltype from the user.               ||
+||                                                            ||
+|| alias minefield                                            ||
+|| > a 2D list of maskedCelltype                              ||
+||                                                            ||
+|| alias coords                                               ||
+|| > A tuple of num used to index into the minefield.         ||
+||                                                            ||
+|| alias cardinalOffsets                                      ||
+|| > NESW offset coords                                       ||
+||                                                            ||
+|| alias offsets                                              ||
+|| > NESW + diagonal offset coords                            ||
+|| ========================================================== ||
 
 celltype ::= Mine | Empty num
 
@@ -67,13 +70,13 @@ cardinalOffsets
 offsets
   = cardinalOffsets ++ [(1, -1), (1, 1), (-1, 1), (-1, -1)]
 
-|| =============================================================
-|| fn convertInput
-||
-|| > Converts an input into coords.
-||
-|| [!] No input validation
-|| =============================================================
+|| ========================================================== ||
+|| fn convertInput                                            ||
+||                                                            ||
+|| > Converts an input stream into coords (defined above)     ||
+||                                                            ||
+|| [!] This does not provide input validation                 ||
+|| ========================================================== ||
 
 convertInput :: [char] -> coords
 
@@ -83,17 +86,20 @@ convertInput input
     ) input
     where coordify n = (numval (n!0), numval (n!1))
 
-|| =============================================================
-|| fn playMove
-||
-|| > Takes a minefield and coords, and updates the board for
-||   that move. Move conditions:
-||   1) Mine -> game over
-||   2) Empty (non zero) -> reveal that cell
-||   3) Empty (zero) -> flood fill
-||
-|| > Assumes that the coords are already validated
-|| =============================================================
+|| ========================================================== ||
+|| fn playMove                                                ||
+||                                                            ||
+|| > Takes a minefield and coords, and updates the board by   ||
+||   playing a move at those coordinates.                     ||
+||                                                            ||
+|| > Legal move conditions:                                   ||
+||   1) Mine -> game over                                     ||
+||   2) Empty (non zero) -> reveal that cell                  ||
+||   3) Empty (zero) -> flood fill                            ||
+||                                                            ||
+|| [!] This does not provide input validation. If OOB coords  ||
+||     are provided, the game will crash. womp womp.          ||
+|| ========================================================== ||
 
 playMove :: minefield -> coords -> minefield
 
@@ -110,22 +116,18 @@ playMove field (row, col)
     playCell (Hidden any)
       = updateMinefield field (row, col) (Shown any)
 
-|| =============================================================
-|| fn sweep
-||
-|| > Sweeps across the board to reveal contiguous blocks of
-||   Empty cells.
-||
-|| > Sweep on an "Empty 0" cell will recursively call adjacent
-||   sweeps.
-||
-|| > Sweep on an "Empty n" cell will updateMinefield to reveal
-||   that cell.
-||
-|| > Sweep on a "Mine" will return the current field, but
-||   theoretically this shouldn't be possible because Mines are
-||   always surrounded by "Empty n" cells.
-|| =============================================================
+|| ========================================================== ||
+|| fn sweep                                                   ||
+||                                                            ||
+|| > Sweeps across the board to reveal contiguous blocks of   ||
+||   Empty cells. It's like a flood fill, or something.       ||
+||                                                            ||
+|| > Legal sweep conditions:                                  ||
+||   1) "Empty 0" -> recursively call adjacent sweeps.        ||
+||   2) "Empty n" -> update minefield to reveal that cell.    ||
+||   3) "Mine" -> return the current field, theoretically     ||
+||      impossible as Mines are surrounded by "Empty n" cells ||
+|| ========================================================== ||
 
 sweep :: minefield -> coords -> minefield
 sweep field (row, col)
@@ -144,10 +146,11 @@ sweep field (row, col)
     xSweep f (r, c) (Hidden (Empty any))
       = updateMinefield f (r, c) (Shown (Empty any))
 
-|| =============================================================
-|| fn updateMinefield
-|| > Updates a single cell on the minefield at the given coords.
-|| =============================================================
+|| ========================================================== ||
+|| fn updateMinefield                                         ||
+||                                                            ||
+|| > Updates a single cell at the given coords.               ||
+|| ========================================================== ||
 
 updateMinefield :: minefield -> coords ->
                    maskedCelltype -> minefield
@@ -162,11 +165,12 @@ updateMinefield field (row, col) value
         [value] ++
         (drop (col + 1) r)
 
-|| =============================================================
-|| fn printMinefield
-|| > takes a minefield and converts it into a string suitable
-||   for printing to the console.
-|| =============================================================
+|| =========================================================== ||
+|| fn printMinefield                                           ||
+||                                                             ||
+|| > I'm not telling you what this does so you're gonna have   ||
+||   to guess.                                                 ||
+|| =========================================================== ||
 
 printMinefield :: minefield -> [char]
 printMinefield m
@@ -177,15 +181,15 @@ printMinefield m
     printCell (Shown (Empty 0)) = '_'
     printCell (Shown (Empty n)) = (show (n))!0
 
-|| =============================================================
-|| fn loadMinefield
-||
-|| > A series of functions that take a filename and convert it
-||   into a 'primed' version of Mines and Empty,
-||   then a 'flagged' version to mark the number of mines
-||   adjacent to each Empty cell (if > 0),
-||   and finally a 'masked' version to make the board playable.
-|| =============================================================
+|| =========================================================== ||
+|| fn loadMinefield                                            ||
+||                                                             ||
+|| > A reverse chain of functions that takes a filename and    ||
+||   converts it into a 'primed' version of Mines and Empty,   ||
+||   then a 'flagged' version to mark the number of mines      ||
+||   adjacent to each Empty cell (if > 0), and finally a       ||
+||   'masked' version to make the board playable.              ||
+|| =========================================================== ||
 
 loadMinefield :: [char] -> minefield
 loadMinefield filename
@@ -194,12 +198,12 @@ loadMinefield filename
     .primeMinefield
     .loadFile) filename
 
-|| =============================================================
-|| fn primeMinefield
-||
-|| > Converts the ascii representation of the minefield into a
-||   field of Empty 0 or Mine celltypes.
-|| =============================================================
+|| =========================================================== ||
+|| fn primeMinefield                                           ||
+||                                                             ||
+|| > Converts the ascii representation of the minefield into a ||
+||   field of Empty 0 or Mine celltypes.                       ||
+|| =========================================================== ||
 
 primeMinefield :: [char] -> [[celltype]]
 primeMinefield fileContent
@@ -209,13 +213,13 @@ primeMinefield fileContent
     strToCell "E" = Empty 0
     strToCell "M" = Mine
 
-|| =============================================================
-|| fn flagMinefield
-||
-|| > Passes over every cell and flags every Empty cell adjacent
-||   to a Mine. Flagging can occur more than once - a cell with
-||   1 flag can be incremented to 2.
-|| =============================================================
+|| =========================================================== ||
+|| fn flagMinefield                                            ||
+||                                                             ||
+|| > Passes over every cell and flags every Empty cell that is ||
+||   adjacent to a Mine. Flagging can occur more than once - a ||
+||   cell with 1 flag is incremented to 2, and so on.          ||
+|| =========================================================== ||
 
 flagMinefield :: [[celltype]] -> [[celltype]]
 flagMinefield primedfield
@@ -253,11 +257,11 @@ flagMinefield primedfield
       = True, if (field!r)!c = Mine
       = False, otherwise
 
-|| =============================================================
-|| fn maskMinefield
-||
-|| > Masks all celltypes as Hidden.
-|| =============================================================
+|| ========================================================== ||
+|| fn maskMinefield                                           ||
+||                                                            ||
+|| > Masks all celltypes as Hidden.                           ||
+|| ========================================================== ||
 
 maskMinefield :: [[celltype]] -> minefield
 maskMinefield constructed
@@ -265,9 +269,9 @@ maskMinefield constructed
     where
     obfuscate any = Hidden any
 
-|| =============================================================
-|| fn run
-|| =============================================================
+|| ========================================================== ||
+|| fn run                                                     ||
+|| ========================================================== ||
 
 run
   = Stdout msg_init : getMinefieldName $-
@@ -295,8 +299,10 @@ getMinefieldName input
 
 doGameLoop :: minefield -> [char] -> [sys_message]
 doGameLoop field input
-  = [Stdout (printMinefield field ++ winMessage)], if isGameOver field
-  = Stdout prompt : processInput input, otherwise
+  = [Stdout (printMinefield field ++ winMessage)]
+    , if isGameOver field
+  = Stdout prompt : processInput input
+    , otherwise
     where
     prompt
       = "\n"
@@ -306,20 +312,24 @@ doGameLoop field input
     winMessage = "\nCongratulations, you win!\n"
 
     processInput stream
-      = [Stdout "\nThanks for playing! Goodbye.\n"], if moveStr = "q"
-      = doGameLoop nextField rest, otherwise
+      = [Stdout "\nThanks for playing! Goodbye.\n"]
+        , if moveStr = "q"
+      = doGameLoop nextField rest
+        , otherwise
         where
-        moveStr = filter (~= '\r') (takewhile (~= '\n') stream)
-        rest = drop 1 (dropwhile (~= '\n') stream)
+        moveStr
+          = filter (~= '\r') (takewhile (~= '\n') stream)
+        rest
+          = drop 1 (dropwhile (~= '\n') stream)
         
         parsedMove = convertInput moveStr
         nextField = playMove field parsedMove
 
-|| =============================================================
-|| fn isGameOver
-||
-|| > Checks if the only hidden blocks are mines.
-|| =============================================================
+|| ========================================================== ||
+|| fn isGameOver                                              ||
+||                                                            ||
+|| > Checks if the only hidden cells are mines.               || 
+|| ========================================================== ||
 
 isGameOver :: minefield -> bool
 isGameOver field
@@ -335,10 +345,12 @@ isGameOver field
     isHiddenEmpty (Hidden (Empty n)) = True
     isHiddenEmpty (Shown any) = False
 
-|| =============================================================
-|| fn main
-|| =============================================================
+|| ========================================================== ||
+|| fn main                                                    ||
+||                                                            ||
+|| > program entry point.                                     ||
+|| ========================================================== ||
 
 main = run
 
-|| =============================================================
+|| ========================================================== ||
