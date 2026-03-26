@@ -71,6 +71,87 @@ offsets
   = cardinalOffsets ++ [(1, -1), (1, 1), (-1, 1), (-1, -1)]
 
 || ========================================================== ||
+|| fn main                                                    ||
+||                                                            ||
+|| > Program entry point. The function passes forward the     ||
+||   input stream from main to getMineFieldName to doGameLoop ||
+||                                                            ||
+|| > getMinefieldName waits for the user to enter a file name ||
+||   and loads that file if it exists. If an invalid filename ||
+||   is entered, the program will unfortunately crash.        ||
+||   However, entering no input (simply '\n') is handled by   ||
+||   the function and will alert the user that a default      ||
+||   board has been selected.                                 ||
+||                                                            ||
+|| > doGameLoop is a recursive function which plays one move  ||
+||   at a time based on user input. Before each cycle, it     ||
+||   checks if the game has been 'won' (see: isgameOver).     ||
+||   If the game is still ongoing, it awaits the input stream ||
+||   for the next move, which is parsed by processInput. Note ||
+||   that there is no guarantee that processInput will        ||
+||   receive a sanitised input, and the program could crash   ||
+||   here. This is trivial to solve, but has been omitted for ||
+||   now alongside several other QOL features in the interest ||
+||   of not neglecting my other modules.                      || 
+||                                                            ||
+|| > processInput converts the input into a parsedMove via    ||
+||   convertInput, and then uses that move as an argument for ||
+||   a function playMove, which returns the an updated fiedl. ||
+|| ========================================================== ||
+
+main
+  = Stdout msg_init : getMinefieldName $-
+    where msg_init
+      = "Welcome to Mineswelix, a functional implementation"
+        ++ " of minesweeper.\n\n"
+        ++ "Please enter a file name to begin: "
+
+getMinefieldName :: [char] -> [sys_message]
+getMinefieldName input
+  = Stdout msg_field : doGameLoop field rest
+    where
+    fieldName = filter (~= '\r') (takewhile (~= '\n') input)
+    rest = drop 1 (dropwhile (~= '\n') input)
+
+    field = defaultMinefield, if #fieldName = 0
+          = loadMinefield fieldName, otherwise
+
+    msg_field
+      = "Selected minefield: "
+        ++ fieldName
+        ++ "\n", if #fieldName > 0
+      = "No field selected. "
+        ++ "Using default.\n", if #fieldName = 0
+
+doGameLoop :: minefield -> [char] -> [sys_message]
+doGameLoop field input
+  = [Stdout (printMinefield field ++ winMessage)]
+    , if isGameOver field
+  = Stdout prompt : processInput input
+    , otherwise
+    where
+    prompt
+      = "\n"
+        ++ printMinefield field
+        ++ "\nEnter your move, or press 'q' to quit: "
+
+    winMessage = "\nCongratulations, you win!\n"
+
+    processInput stream
+      = [Stdout "\nThanks for playing! Goodbye.\n"]
+        , if moveStr = "q"
+      = doGameLoop nextField rest
+        , otherwise
+        where
+        moveStr
+          = filter (~= '\r') (takewhile (~= '\n') stream)
+        rest
+          = drop 1 (dropwhile (~= '\n') stream)
+        
+        parsedMove = convertInput moveStr
+        nextField = playMove field parsedMove
+
+|| ========================================================== ||
 || fn convertInput                                            ||
 ||                                                            ||
 || > Converts an input stream into coords (defined above)     ||
@@ -92,7 +173,7 @@ convertInput input
 || > Takes a minefield and coords, and updates the board by   ||
 ||   playing a move at those coordinates.                     ||
 ||                                                            ||
-|| > Legal move conditions:                                   ||
+|| > Legal move conditions are defined as:                    ||
 ||   1) Mine -> game over                                     ||
 ||   2) Empty (non zero) -> reveal that cell                  ||
 ||   3) Empty (zero) -> flood fill                            ||
@@ -127,6 +208,8 @@ playMove field (row, col)
 ||   2) "Empty n" -> update minefield to reveal that cell.    ||
 ||   3) "Mine" -> return the current field, theoretically     ||
 ||      impossible as Mines are surrounded by "Empty n" cells ||
+||      but I've added it anyway because it helps the         ||
+||      programmer understand the logic flow more clearly.    ||
 || ========================================================== ||
 
 sweep :: minefield -> coords -> minefield
@@ -149,7 +232,9 @@ sweep field (row, col)
 || ========================================================== ||
 || fn updateMinefield                                         ||
 ||                                                            ||
-|| > Updates a single cell at the given coords.               ||
+|| > Updates a single cell at the given coords. This is       ||
+||   accomplished by the helpful take and drop functions      ||
+||   defined in the standard environment.                     ||
 || ========================================================== ||
 
 updateMinefield :: minefield -> coords ->
@@ -168,8 +253,8 @@ updateMinefield field (row, col) value
 || =========================================================== ||
 || fn printMinefield                                           ||
 ||                                                             ||
-|| > I'm not telling you what this does so you're gonna have   ||
-||   to guess.                                                 ||
+|| > Deletes system 32. Just kidding, it converts the field    ||
+||   into a 'printable format' for the syscall to console.     ||
 || =========================================================== ||
 
 printMinefield :: minefield -> [char]
@@ -270,62 +355,6 @@ maskMinefield constructed
     obfuscate any = Hidden any
 
 || ========================================================== ||
-|| fn run                                                     ||
-|| ========================================================== ||
-
-run
-  = Stdout msg_init : getMinefieldName $-
-    where msg_init
-      = "Welcome to Mineswelix, a functional implementation"
-        ++ " of minesweeper.\n\n"
-        ++ "Please enter a file name to begin: "
-
-getMinefieldName :: [char] -> [sys_message]
-getMinefieldName input
-  = Stdout msg_field : doGameLoop field rest
-    where
-    fieldName = filter (~= '\r') (takewhile (~= '\n') input)
-    rest = drop 1 (dropwhile (~= '\n') input)
-
-    field = defaultMinefield, if #fieldName = 0
-          = loadMinefield fieldName, otherwise
-
-    msg_field
-      = "Selected minefield: "
-        ++ fieldName
-        ++ "\n", if #fieldName > 0
-      = "No field selected. "
-        ++ "Using default.\n", if #fieldName = 0
-
-doGameLoop :: minefield -> [char] -> [sys_message]
-doGameLoop field input
-  = [Stdout (printMinefield field ++ winMessage)]
-    , if isGameOver field
-  = Stdout prompt : processInput input
-    , otherwise
-    where
-    prompt
-      = "\n"
-        ++ printMinefield field
-        ++ "\nEnter your move, or press 'q' to quit: "
-
-    winMessage = "\nCongratulations, you win!\n"
-
-    processInput stream
-      = [Stdout "\nThanks for playing! Goodbye.\n"]
-        , if moveStr = "q"
-      = doGameLoop nextField rest
-        , otherwise
-        where
-        moveStr
-          = filter (~= '\r') (takewhile (~= '\n') stream)
-        rest
-          = drop 1 (dropwhile (~= '\n') stream)
-        
-        parsedMove = convertInput moveStr
-        nextField = playMove field parsedMove
-
-|| ========================================================== ||
 || fn isGameOver                                              ||
 ||                                                            ||
 || > Checks if the only hidden cells are mines.               || 
@@ -346,11 +375,7 @@ isGameOver field
     isHiddenEmpty (Shown any) = False
 
 || ========================================================== ||
-|| fn main                                                    ||
-||                                                            ||
-|| > program entry point.                                     ||
-|| ========================================================== ||
-
-main = run
-
+|| Todo:                                                      ||
+|| - Sanitise input before processInput                       ||
+|| - Implement a random function to create randomised boards  ||
 || ========================================================== ||
