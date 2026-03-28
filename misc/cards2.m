@@ -61,28 +61,28 @@ shuffle n deck fn
 || checks and 52 updates.
 || First, we map suits and numbers to num values (integers):
 
-getSuitNum :: card -> num
-getSuitNum (Spades,   any) = 3
-getSuitNum (Hearts,   any) = 2
-getSuitNum (Diamonds, any) = 1
-getSuitNum (Clubs,    any) = 0
+getSN :: card -> num
+getSN (Spades,   any) = 3
+getSN (Hearts,   any) = 2
+getSN (Diamonds, any) = 1
+getSN (Clubs,    any) = 0
 
 || We repeat this for numbers:
 
-getNumberNum :: card -> num
-getNumberNum (any, II)   = 0
-getNumberNum (any, III)  = 1
-getNumberNum (any, IV)   = 2
-getNumberNum (any, V)    = 3
-getNumberNum (any, VI)   = 4
-getNumberNum (any, VII)  = 5
-getNumberNum (any, VIII) = 6
-getNumberNum (any, IX)   = 7
-getNumberNum (any, X)    = 8
-getNumberNum (any, J)    = 9
-getNumberNum (any, Q)    = 10
-getNumberNum (any, K)    = 11
-getNumberNum (any, A)    = 12
+getNN :: card -> num
+getNN (any, II)   = 0
+getNN (any, III)  = 1
+getNN (any, IV)   = 2
+getNN (any, V)    = 3
+getNN (any, VI)   = 4
+getNN (any, VII)  = 5
+getNN (any, VIII) = 6
+getNN (any, IX)   = 7
+getNN (any, X)    = 8
+getNN (any, J)    = 9
+getNN (any, Q)    = 10
+getNN (any, K)    = 11
+getNN (any, A)    = 12
 
 || Now for the fun part! We will simulate a bitmap of length 52, initialised to
 || false, and we will use the above maps to see if a value has already
@@ -97,8 +97,8 @@ isDeckUnique deck
                      = xIDU cs (updateBitmap bm index), otherwise
                        where
                        index = suitnum * 13 + numbernum
-                       suitnum = getSuitNum c
-                       numbernum = getNumberNum c
+                       suitnum = getSN c
+                       numbernum = getNN c
 
 || updateBitmap is used to produce a new bitmap
 
@@ -123,8 +123,120 @@ deal numHands handSize deck
     ydeal 0  hS d hands = hands
     ydeal nH hS d hands = ydeal (nH-1) hS (drop hS d) ((take hS d) : hands)
 
-|| =============================================
+|| compareHands takes two lists of hands and compares them to determine which hand
+|| has the higher score. Each hand is is given a hand score of the form
+|| ( hand_type_score, highest_card_score, suit_score )
+|| where hand_type_score ranges from 4 "straight flush" to 0 "junk", and
+|| where highest_card_score is 0-12 for straight flush and 4OAKs, but is
+|| triplet_val * 13 + pair_val for full house to encode both scores in the simulate
+|| object size. This is important because it allows us to use the second
+|| value in the triple for multiple encodings, where reading the first value
+|| means we never read the value wrong. ... AND where
+|| highest_card_score is highest_card * 13 **4 + second * 13**3 + third *13**2 +
+|| fourth * 13 + fifth.
+|| Lastly, we encode the suit score from 0-3.
+|| We also need to identify a hand's properties. The first step is to sort them
+|| in descending order.
+|| We use this to check for a 4OAK
+|| 4OAK if A=B=C=D E or A B=C=D=E (when sorted)
+|| if 4OAK, we don't care about the suit score, and we can already return the
+|| other values of the triple.
 
+|| We then check for FH:
+|| FH is A=B=C D=E or A=B C=D=E (when sorted)
+|| Once again, we don't care about suit score, but we must identify the
+|| triplet. We do this via a logic check.
+
+|| We then check for flushes and straight flushes together. We can use a bool
+|| to track straight and current suit. Then, since we know the list is sorted,
+|| we simply need to check that the values descend.
+
+|| EZ. Now let's code it :)
+
+|| compareHands takes two hands and calculates their hand scores with getHandScore
+|| The function then uses these scores to determine the stronger hand.
+
+hand == [card]
+
+compareHands :: hand -> hand -> hand
+compareHands hand1 hand2
+  = hand1, if (handScore h1)        > (handScore h2)
+  = hand2, if (handScore h1)        < (handScore h2)
+  = hand1, if (highestCardScore h1) > (highestCardScore h2)
+  = hand2, if (highestCardScore h1) < (highestCardScore h2)
+  = hand1, if (suitScore h1)        > (suitScore h2)
+  = hand2, if (suitScore h1)        < (suitScore h2)
+  = error "No winning hand.", otherwise
+    where
+    handScore        (a, b, c) = a
+    highestCardScore (a, b, c) = b
+    suitScore        (a, b, c) = c
+    h1 = getHandScore hand1
+    h2 = getHandScore hand2
+
+|| getHandScore takes a hand and returns a hand score.
+
+handscore == (num, num, num)
+
+getHandScore :: hand -> handscore
+
+getHandScore h
+  = xgetHandScore (sortHandDesc h)
+    where
+    xgetHandScore sh
+      = (3, getNN (sh!2), 0) || get the highest card score from the middle card because this will always be part of the 4OAK
+        , if getNN (sh!0) = getNN (sh!1) &
+             getNN (sh!1) = getNN (sh!2) &
+             getNN (sh!2) = getNN (sh!3) \/
+             getNN (sh!1) = getNN (sh!2) &
+             getNN (sh!2) = getNN (sh!3) &
+             getNN (sh!3) = getNN (sh!4)
+      = (2, getNN (sh!0) * 13 + getNN (sh!4), 0)
+        , if getNN (sh!0) = getNN (sh!1) &
+             getNN (sh!1) = getNN (sh!2) &
+             getNN (sh!3) = getNN (sh!4)
+      = (2, getNN (sh!4) * 13 + getNN (sh!0), 0)
+        , if getNN (sh!0) = getNN (sh!1) &
+             getNN (sh!2) = getNN (sh!3) &
+             getNN (sh!3) = getNN (sh!4)
+      = flushOrStraightFlush sh
+        , if getSN (sh!0) = getSN (sh!1) &
+             getSN (sh!1) = getSN (sh!2) &
+             getSN (sh!2) = getSN (sh!3) &
+             getSN (sh!3) = getSN (sh!4)
+      = (0, 0, 0), otherwise
+    flushOrStraightFlush sh
+      = (4, polyScore, getSN (sh!0))
+        , if getNN (sh!0) = 1 + getNN (sh!1) &
+             getNN (sh!1) = 1 + getNN (sh!2) &
+             getNN (sh!2) = 1 + getNN (sh!3) &
+             getNN (sh!3) = 1 + getNN (sh!4)
+      = (1, polyScore, getSN (sh!0))
+        , otherwise
+        where
+        polyScore
+          = getNN (sh!0) * (13 * 13 * 13 * 13) +
+            getNN (sh!1) * (13 * 13 * 13) +
+            getNN (sh!2) * (13 * 13) +
+            getNN (sh!3) * 13 +
+            getNN (sh!4)
+
+|| sortHandDesc
+
+sortHandDesc :: hand -> hand
+sortHandDesc h
+  = xSHD h
+    where
+    xSHD [] = []
+    xSHD (x : xs)
+      = xSHD larger ++ [x] ++ xSHD smaller
+        where
+        larger  = [x2 | x2 <- xs; getNN x2 >= getNN x]
+        smaller = [x2 | x2 <- xs; getNN x2 <  getNN x]
+
+
+
+|| =============================================
 example_deck
   = [
     (Spades, II), (Spades, III), (Spades, IV), (Spades, V), (Spades, VI), (Spades, VII), (Spades, VIII), (Spades, IX), (Spades, X), (Spades, J), (Spades, Q), (Spades, K), (Spades, A),
@@ -136,4 +248,4 @@ example_deck
 myfunc :: card -> card -> bool
 myfunc (a, b) (c, d) = (a = c) & (b = d)
 
-main = deal 4 5 (shuffle 1 example_deck myfunc)
+|| main = deal 4 5 (shuffle 1 example_deck myfunc)
